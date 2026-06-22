@@ -1,7 +1,16 @@
+import re
+
 from fastapi import APIRouter
 from fastapi import Depends
 
 from security import verify_api_key
+
+from salesforce.sf_client import sf
+from salesforce.pincode_loader import get_reps_by_pincode
+
+from services.recommendation_service import (
+    get_recommendations
+)
 
 router = APIRouter()
 
@@ -19,14 +28,131 @@ def chat_completions(
         []
     )
 
-    user_message = ""
+    if len(messages) == 0:
 
-    if len(messages) > 0:
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "No prompt received."
+                    }
+                }
+            ]
+        }
 
-        user_message = messages[-1].get(
-            "content",
-            ""
+    prompt = messages[-1].get(
+        "content",
+        ""
+    )
+
+    lead_match = re.search(
+        r"00Q[a-zA-Z0-9]{12,15}",
+        prompt
+    )
+
+    if not lead_match:
+
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content":
+                            "Lead Id not found."
+                    }
+                }
+            ]
+        }
+
+    lead_id = lead_match.group()
+
+    lead_query = f"""
+    SELECT
+        Id,
+        Name,
+        Pincode__c
+    FROM Lead
+    WHERE Id = '{lead_id}'
+    LIMIT 1
+    """
+
+    lead_result = sf.query(
+        lead_query
+    )
+
+    if len(
+        lead_result["records"]
+    ) == 0:
+
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content":
+                            "Lead not found."
+                    }
+                }
+            ]
+        }
+
+    lead = lead_result[
+        "records"
+    ][0]
+
+    pincode = str(
+        int(
+            float(
+                lead["Pincode__c"]
+            )
         )
+    )
+
+    reps = get_reps_by_pincode(
+        pincode
+    )
+
+    rep_ids = [
+        r["User__c"]
+        for r in reps
+        if r.get("User__c")
+    ]
+
+    recommendations = (
+        get_recommendations(
+            rep_ids
+        )
+    )
+
+    if len(recommendations) == 0:
+
+        result_text = (
+            "No recommendations found."
+        )
+
+    else:
+
+        best = recommendations[0]
+
+        result_text = f"""
+Lead: {lead['Name']}
+
+Recommended Owner:
+{best['rep_name']}
+
+Assignment Score:
+{best.get('assignment_score',0)}
+
+Estimated Days:
+{best.get('estimated_days',0)}
+
+Capacity Score:
+{best.get('capacity_score',0)}
+
+Win Rate:
+{best.get('win_rate',0)}%
+"""
 
     return {
 
@@ -35,9 +161,6 @@ def chat_completions(
 
         "object":
             "chat.completion",
-
-        "created":
-            1710000000,
 
         "model":
             "Lead-Intelligence-v1",
@@ -53,7 +176,7 @@ def chat_completions(
                         "assistant",
 
                     "content":
-                        f"You said: {user_message}"
+                        result_text
 
                 },
 
