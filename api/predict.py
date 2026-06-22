@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from fastapi import Depends
+from datetime import datetime
 
 from security import verify_api_key
 
@@ -132,56 +133,64 @@ def predict(
 
     return {
 
-        "predictions": [
+    "model_name":
+        "Lead Intelligence",
 
-            {
+    "model_version":
+        "1.0",
 
-                "lead_id":
-                    lead_id,
+    "prediction_type":
+        "Lead Assignment",
 
-                "lead_name":
-                    lead.get("Name"),
+    "prediction_timestamp":
+        datetime.utcnow().isoformat(),
 
-                "recommended_owner":
-                    best_rep["rep_id"],
+    "predictions": [
 
-                "recommended_owner_name":
-                    best_rep["rep_name"],
+        {
 
-                "assignment_score":
-                    best_rep.get(
-                        "assignment_score",
-                        0
-                    ),
+            "lead_id":
+                lead_id,
 
-                "rep_score":
-                    best_rep.get(
-                        "rep_score",
-                        0
-                    ),
+            "lead_name":
+                lead.get("Name"),
 
-                "predicted_days":
-                    best_rep.get(
-                        "estimated_days",
-                        0
-                    ),
+            "owner_id":
+                best_rep["rep_id"],
 
-                "win_rate":
-                    best_rep.get(
-                        "win_rate",
-                        0
-                    ),
+            "owner_name":
+                best_rep["rep_name"],
 
-                "capacity_score":
-                    best_rep.get(
-                        "capacity_score",
-                        0
-                    )
+            "score":
+                best_rep.get(
+                    "assignment_score",
+                    0
+                ),
 
-            }
+            "days":
+                best_rep.get(
+                    "estimated_days",
+                    0
+                ),
 
-        ],
+            "win_rate":
+                best_rep.get(
+                    "win_rate",
+                    0
+                ),
 
-        "all_recommendations":
-            recommendations
-    }
+            "capacity_score":
+                best_rep.get(
+                    "capacity_score",
+                    0
+                )
+        }
+
+    ],
+
+    "candidate_count":
+        len(recommendations),
+
+    "candidates":
+        recommendations
+}
