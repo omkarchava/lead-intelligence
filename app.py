@@ -1,12 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.predict import (
+    router as predict_router
+)
+
 from api.recommend import router
 
 app = FastAPI(
     title="Lead Intelligence API",
     version="1.0"
 )
+
+app.include_router(router)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -15,7 +22,8 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-app.include_router(router)
+
+app.include_router(predict_router)
 
 
 @app.get("/")
